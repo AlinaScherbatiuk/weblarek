@@ -51,6 +51,11 @@ console.log(
 
 // Создание покупателя и получение данных
 const buyer = new Buyer('card', 'test@mail.com', '89999999999', 'Москва, ул. Пушкина, д.1');
+buyer.setBuyerData({ email: 'new@mail.com' });
+console.log('Валидация данных (email):', buyer.validateField('email'));
+ 
+buyer.setBuyerData({ phone: '89995553322' });
+console.log('Валидация данных (phone):', buyer.validateField('phone'));
 console.log('Данные покупателя (getDetails):', buyer.getDetails());
 
 //  Валидация данных
@@ -59,8 +64,8 @@ console.log('Валидация данных (validate):', buyer.validate());
 //  Очистка данных и повторная проверка
 buyer.clearBuyerData();
 console.log('Данные после очистки:', buyer.getDetails());
+console.log('Валидация данных (email):', buyer.validateField('email'));
 console.log('Валидация после очистки:', buyer.validate());
-
 
 
 //Загрузка каталога с сервера
