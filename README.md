@@ -154,18 +154,35 @@ Presenter - презентер содержит основную логику п
 
 - **Конструктор**:
   ```ts
-  constructor(email: string, phone: string, address: string)
+  constructor(payment: TPayment, email: string, phone: string, address: string)
   ```
-  Принимает данные покупателя: email, телефон и адрес.
+  Принимает данные покупателя: тип оплаты, email, телефон и адрес.
 
 - **Поля**:
+  - `payment: 'card' | 'cash' | ''`: Тип оплаты покупателя.
   - `email: string`: Адрес электронной почты покупателя.
   - `phone: string`: Телефон покупателя.
   - `address: string`: Адрес доставки покупателя.
 
 - **Методы**:
   - `getDetails(): IBuyer` — Возвращает все данные покупателя.
+  - `clearBuyerData(): void` — Очищает все данные покупателя.
   - `validate(): boolean` — Проверяет, заполнены ли все обязательные поля (email, телефон, адрес).
+
+#### 4. **ApiCommunication (АПИ комунникация)**
+
+- **Описание**: Класс отвечает за взаимодействие с АПИ.
+
+- **Конструктор**:
+  ```ts
+  constructor(private api: IApi)
+  ```
+  Принимает методы get и post.
+ 
+- **Методы**:
+  - `getProducts(): Promise<IProduct[]> ` — Возвращает список продуктов с сервера.
+  - `createOrder(payload: IOrderRequest): Promise<IOrderResponse>` — Отправляет заказ на сервер.
+  
 
 ### Типы данных
 
