@@ -30,7 +30,7 @@ class Buyer implements IBuyer {
 
   }
   setBuyerData(data: Partial<IBuyer>): void {
-    if (typeof data.payment !== 'undefined') this.payment = data.payment as TPayment;
+    if (typeof data.payment !== 'undefined') this.payment = data.payment;
     if (typeof data.email !== 'undefined') this.email = data.email;
     if (typeof data.phone !== 'undefined') this.phone = data.phone;
     if (typeof data.address !== 'undefined') this.address = data.address;
