@@ -37,16 +37,6 @@ document.querySelector('.header__basket')?.addEventListener('click', (e) => {
   events.emit('basket/open', {});
 });
 
-
-const toCardProps = (p: IProduct) => ({
-  id: p.id,
-  title: p.title,
-  image: p.image ? `${CDN_URL}/${p.image}` : undefined,
-  price: p.price,
-  inBasket: cartModel.isItemInCart(p.id),
-  category: p.category,
-});
-
 function renderCatalog() {
   const items = productsModel.getArrayProducts().map((p: IProduct) => ({
     id: p.id,
