@@ -18,17 +18,22 @@ export interface IOrderResponse {
 }
 // Запрос на POST /order/
 export interface IOrderRequest {
-  items: string[];     // массив id товаров 
+  payment: TPayment;
+  address: string;
+  email: string;
+  phone: string;
+  items: string[];
+  total: number;
 }
 
 // Интерфейс для товара
 export interface IProduct {
-  id: string;
+  id: ProductId;
   description: string;
   image: string;
   title: string;
   category: string;
-  price: number | null;
+  price: Price;
 }
 
 // Интерфейс для покупателя
@@ -41,3 +46,9 @@ export interface IBuyer {
 
 // Тип для способа оплаты
 export type TPayment = "card" | "cash" | "";
+
+//ID Продукта
+export type ProductId = string;
+
+// Цена как тип
+export type Price = number | null;

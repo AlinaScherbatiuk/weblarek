@@ -1,81 +1,173 @@
 import './scss/styles.scss';
 
+ 
 import { ProductCatalog } from './components/Models/ProductCatalog';
 import { Cart } from './components/Models/Cart';
 import { Buyer } from './components/Models/Buyer';
-import { apiProducts } from './utils/data';
-import { Api } from './components/base/Api';
+
+ import { Api } from './components/base/Api';
 import { ApiCommunication } from './components/Models/ApiCommunication';
-import { API_URL } from './utils/constants';
+import { API_URL, CDN_URL } from './utils/constants';
 
+import { events } from './components/base/eventsBus';
+import { OverlayDialog } from './components/View/OverlayDialog';
+import { CartToggleButton } from './components/View/CartToggleButton';
+import { ProductGrid } from './components/View/ProductGrid';
+import { CartPanel } from './components/View/CartPanel';
+import { ProductQuicklook } from './components/View/ProductQuicklook';
+import { CheckoutDetailsStep } from './components/View/CheckoutDetailsStep';
+import { CheckoutContactsStep } from './components/View/CheckoutContactsStep';
 
-const productsModel = new ProductCatalog(apiProducts.items);
+import type { IProduct, ProductId, IOrderRequest } from './types';
 
-//  Получение всего массива товаров
-console.log('Массив товаров из каталога:', productsModel.getArrayProducts());
-
-//  Получение одного товара по ID
-const firstId = apiProducts.items[0]?.id;
-console.log('Первый товар по ID:', firstId, productsModel.getProduct(firstId));
-
-// Проверка setArrayProducts (переустановим данные и проверим)
-productsModel.setArrayProducts(apiProducts.items);
-console.log('Каталог после повторной установки массива:', productsModel.getArrayProducts());
-
-
-
+const productsModel = new ProductCatalog([]);
 const cartModel = new Cart();
-// Добавление двух товаров
-cartModel.addItem(apiProducts.items[0]);
-cartModel.addItem(apiProducts.items[1]);
-console.log('Корзина после добавления:', cartModel.getCartItems());
+const buyerModel = new Buyer('', '', '', '');
 
-// Общая сумма
-console.log('Общая сумма корзины:', cartModel.getTotalPrice());
+const modalView = new OverlayDialog(events);
+const headerCart = new CartToggleButton(events);
+const catalog = new ProductGrid(events);
+const catalogView = new CartPanel(events);
+const orderStep1View = new CheckoutDetailsStep(events);
+const orderStep2View = new CheckoutContactsStep(events);
 
-//  Проверка наличия второго товара по ID
-console.log(
-    `Товар с ID ${apiProducts.items[1].id} в корзине?`,
-    cartModel.isItemInCart(apiProducts.items[1].id)
-);
-
-//  Удаление первого товара и повторная проверка
-cartModel.removeItem(apiProducts.items[0].id);
-console.log('Корзина после удаления первого товара:', cartModel.getCartItems());
-console.log('Общая сумма после удаления:', cartModel.getTotalPrice());
-console.log(
-    `Товар с ID ${apiProducts.items[0].id} в корзине?`,
-    cartModel.isItemInCart(apiProducts.items[0].id)
-);
+document.querySelector('.header__basket')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  events.emit('basket/open', {});
+});
 
 
-// Создание покупателя и получение данных
-const buyer = new Buyer('card', 'test@mail.com', '89999999999', 'Москва, ул. Пушкина, д.1');
-buyer.setBuyerData({ email: 'new@mail.com' });
-console.log('Валидация данных (email):', buyer.validateField('email'));
+const toCardProps = (p: IProduct) => ({
+  id: p.id,
+  title: p.title,
+  image: p.image ? `${CDN_URL}/${p.image}` : undefined,
+  price: p.price,
+  inBasket: cartModel.isItemInCart(p.id),
+  category: p.category,
+});
+
+function renderCatalog() {
+  const items = productsModel.getArrayProducts().map((p: IProduct) => ({
+    id: p.id,
+    title: p.title,
+    image: p.image ? `${CDN_URL}/${p.image}` : undefined,
+    price: p.price,
+  inBasket: cartModel.isItemInCart(p.id),
+  category: p.category,
+  }));
+  catalog.setState({ items });
+  headerCart.setState({ count: cartModel.getCartItems().length });
+}
+
+function openBasket() {
+  catalogView.setState({
+    items: cartModel.getCartItems().map((it, index) => ({
+      id: it.id,
+      title: it.title,
+      price: it.price,
+      index,
+    })),
+    total: cartModel.getTotalPrice(),
+  });
+  modalView.open(catalogView.render());
+}
+
+events.on<{ id: ProductId }>('product/open', ({ id }) => {
+  const item = productsModel.getProduct(id);
+  if (!item) return;
+
+  const preview = new ProductQuicklook(events, {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    image: item.image ? `${CDN_URL}/${item.image}` : undefined,
+    price: item.price,
+    inBasket: cartModel.isItemInCart(item.id),
+    category: item.category,
+  });
+  modalView.open(preview.getElement());
+});
+
+events.on<{ id: ProductId }>('product/add', ({ id }) => {
+  const item = productsModel.getProduct(id);
+  if (!item) return;
+  if (!cartModel.isItemInCart(id)) {
+    cartModel.addItem(item);
+  }
+  headerCart.setState({ count: cartModel.getCartItems().length });
+events.on<{ id: ProductId }>('product/remove', ({ id }) => {
+  if (cartModel.isItemInCart(id)) {
+    cartModel.removeItem(id);
+  }
+  headerCart.setState({ count: cartModel.getCartItems().length });
+  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
+});
+
+  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
+});
+
+events.on('basket/open', () => openBasket());
+
+events.on<{ id: ProductId }>('basket/remove', ({ id }) => {
+  cartModel.removeItem(id);
+  headerCart.setState({ count: cartModel.getCartItems().length });
+  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
+});
  
-buyer.setBuyerData({ phone: '89995553322' });
-console.log('Валидация данных (phone):', buyer.validateField('phone'));
-console.log('Данные покупателя (getDetails):', buyer.getDetails());
+events.on('basket/checkout', () => {
+  modalView.open(orderStep1View.render());
+});
 
-//  Валидация данных
-console.log('Валидация данных (validate):', buyer.validate());
+events.on<{ data: { payment: 'card' | 'cash'; address: string } }>('order/step1/next', ({ data }) => {
+  buyerModel.setBuyerData({ payment: data.payment });
+  buyerModel.setBuyerData({ address: data.address });
+  modalView.open(orderStep2View.render());
+});
 
-//  Очистка данных и повторная проверка
-buyer.clearBuyerData();
-console.log('Данные после очистки:', buyer.getDetails());
-console.log('Валидация данных (email):', buyer.validateField('email'));
-console.log('Валидация после очистки:', buyer.validate());
+events.on<{ data: { email: string; phone: string } }>('order/step2/pay', async ({ data }) => {
+  buyerModel.setBuyerData({ email: data.email });
+  buyerModel.setBuyerData({ phone: data.phone });
+  if (!buyerModel.validate()) return;
+
+  const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
+  const service = new ApiCommunication(api);
+
+  const payload: IOrderRequest = {
+    payment: buyerModel.payment,
+    address: buyerModel.address,
+    email: buyerModel.email,
+    phone: buyerModel.phone,
+    items: cartModel.getCartItems().map((it) => it.id),
+    total: cartModel.getTotalPrice(),
+  };
+
+  try {
+    await service.createOrder(payload);
+const tpl = document.getElementById('success') as HTMLTemplateElement;
+  const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+  const amountEl = node.querySelector('.order-success__description') as HTMLElement;
+  if (amountEl) amountEl.textContent = `Списано ${cartModel.getTotalPrice()} синапсов`;
+  const closeBtn = node.querySelector('.order-success__close') as HTMLButtonElement;
+  if (closeBtn) closeBtn.addEventListener('click', () => modalView.close());
+  modalView.open(node);
+
+    cartModel.cartItems = [];
+    headerCart.setState({ count: 0 });
+  } catch (e) {
+    console.error('Не удалось оформить заказ:', e);
+  }
+});
 
 
-//Загрузка каталога с сервера
-const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
-
-const service = new ApiCommunication(api);
-
-
-const items = await service.getProducts();
-console.log('Каталог товаров с сервера:', items);
-
-const products = new ProductCatalog(items);
-console.log('Массив товаров из модели:', products.getArrayProducts());
+(async () => {
+  try {
+    const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
+    const service = new ApiCommunication(api);
+    const items = await service.getProducts();
+    productsModel.setArrayProducts(items);
+    renderCatalog();
+  } catch (e) {
+    console.error('Ошибка загрузки каталога:', e);
+  }
+})();
