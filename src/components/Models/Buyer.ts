@@ -41,9 +41,9 @@ class Buyer implements IBuyer {
       case 'payment':
         return this.payment === 'card' || this.payment === 'cash';
       case 'email':
-        return this.email.trim().includes('@');
+        return this.email.trim().length>0;
       case 'phone':
-        return this.phone.replace(/\D/g, '').length >= 8;
+        return this.phone.trim().length > 0;
       case 'address':
         return this.address.trim().length > 0;
       default:

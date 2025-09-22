@@ -43,7 +43,7 @@ export class CheckoutDetailsStep extends BaseFormView<OrderStep1State> {
       }
     });
 
-    this.render();
+   this.validate(); this.render();
   }
 
   private hasErrors() { return Boolean(this.viewState.errors.payment || this.viewState.errors.address); }

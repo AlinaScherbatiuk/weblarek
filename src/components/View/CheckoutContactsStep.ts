@@ -20,7 +20,7 @@ export class CheckoutContactsStep extends BaseFormView<OrderStep2State> {
     this.errorsEl = form.querySelector('.form__errors') as HTMLElement;
     this.emailInput = form.querySelector('input[name="email"]') as HTMLInputElement;
     this.phoneInput = form.querySelector('input[name="phone"]') as HTMLInputElement;
-
+    
     const onInput = () => {
       this.viewState.email = this.emailInput.value;
       this.viewState.phone = this.phoneInput.value;
@@ -35,16 +35,15 @@ export class CheckoutContactsStep extends BaseFormView<OrderStep2State> {
       if (!this.hasErrors()) {
         this.events.emit('order/step2/pay', { data: { email: this.viewState.email, phone: this.viewState.phone } });
       }
-    });
-
-    this.render();
+    });    
+   this.validate(); this.render();
   }
 
   private hasErrors() { return Boolean(this.viewState.errors.email || this.viewState.errors.phone); }
   private validate() {
     const errors: OrderStep2State['errors'] = {};
-    if (!this.viewState.email) errors.email = 'Введите e-mail';
-    if (!this.viewState.phone) errors.phone = 'Введите телефон';
+    if (!this.viewState.email || this.viewState.email.trim().length==0) errors.email = 'Введите e-mail';
+    if (!this.viewState.phone || this.viewState.phone.trim().length==0) errors.phone = 'Введите телефон';
     this.viewState.errors = errors;
     this.setSubmitDisabled(this.hasErrors());
   }
