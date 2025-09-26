@@ -1,9 +1,9 @@
 import { Component } from '../base/Component';
 import type { IEvents } from '../base/Events';
+import { ensureElement } from '../../utils/utils';
 
 export class OverlayDialog extends Component<{ isOpen: boolean }> {
-  private overlay: HTMLElement;
-  private windowEl: HTMLElement;   
+  private overlay: HTMLElement;   
   private content: HTMLElement;
   private closeBtn: HTMLButtonElement;
   private lastActive: HTMLElement | null = null;
@@ -14,9 +14,8 @@ export class OverlayDialog extends Component<{ isOpen: boolean }> {
     super(overlay);
 
     this.overlay = overlay;
-    this.windowEl = overlay.querySelector('.modal__container') as HTMLElement;
-    this.content = overlay.querySelector('.modal__content') as HTMLElement;
-    this.closeBtn = overlay.querySelector('.modal__close') as HTMLButtonElement;
+    this.content = ensureElement<HTMLElement>('.modal__content',overlay) as HTMLElement;
+    this.closeBtn = ensureElement<HTMLButtonElement>('.modal__close',overlay) as HTMLButtonElement;
     this.onOverlayClick = this.onOverlayClick.bind(this);
     this.onKeydown = this.onKeydown.bind(this);
     this.onClose = this.onClose.bind(this);
@@ -41,15 +40,6 @@ export class OverlayDialog extends Component<{ isOpen: boolean }> {
     if (content) this.setContent(content);
     this.overlay.classList.add('modal_active');
     document.addEventListener('keydown', this.onKeydown);
-
-
-    setTimeout(() => {
-      this.windowEl
-        .querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        ?.focus();
-    }, 0);
   }
 
   close() {

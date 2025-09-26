@@ -1,5 +1,6 @@
 
 import { IBuyer, TPayment } from '../../types';
+import type { IEvents } from '../base/Events';
 
 class Buyer implements IBuyer {
   payment: 'card' | 'cash' | '';
@@ -7,7 +8,7 @@ class Buyer implements IBuyer {
   phone: string;
   address: string;
 
-  constructor(payment: TPayment, email: string, phone: string, address: string) {
+  constructor(payment: TPayment, email: string, phone: string, address: string,private readonly events?: IEvents) {
     this.payment = payment;
     this.email = email;
     this.phone = phone;
@@ -36,6 +37,11 @@ class Buyer implements IBuyer {
     if (typeof data.address !== 'undefined') this.address = data.address;
   }
 
+  changeData(key: keyof IBuyer, value: any) {   
+  this[key] = value;
+  this.validate();
+}
+
   validateField(field: keyof IBuyer): boolean {
     switch (field) {
       case 'payment':
@@ -52,13 +58,19 @@ class Buyer implements IBuyer {
   }
 
   validate(): boolean {
-    return (
-      this.validateField('payment') &&
-      this.validateField('email') &&
-      this.validateField('phone') &&
-      this.validateField('address')
-    );
+   const ok = (
+    this.validateField('payment') &&
+    this.validateField('email') &&
+    this.validateField('phone') &&
+    this.validateField('address')
+  );
+  const errors: { [k: string]: string } = {};
+if (!this.payment) errors.payment = 'Выберите способ оплаты';
+if (!this.address || !this.address.trim()) errors.address = 'Введите адрес';
+this.events?.emit('form:errors', { errors, state: { payment: this.payment, address: this.address } });
+return ok;
   }
+  
 }
 
 export { Buyer };

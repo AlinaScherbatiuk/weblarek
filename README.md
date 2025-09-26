@@ -282,40 +282,184 @@ type TPayment = "card" | "cash" | "";
 - `setError(message: string)` — вывод общего текста ошибки;
 - дефолтный `render()` — возвращает `formEl`.
 
-### Карточки (наследники `BaseCardView`)
+ ## View-компоненты
 
-#### `GridCard`
-Карточка товара в каталоге (плитка). Работает с темплейтом списка, отвечает за «тизер» товара и пробрасывает действие «открыть превью»/«купить» наружу.
+### `ProductGrid`
 
-#### `ProductQuicklook`
-Карточка предпросмотра для модального окна: заголовок, описание, цена, категория и кнопка «Купить/Удалить из корзины». Не открывает корзину автоматически — только меняет состояние корзины.
+**Назначение.** Отрисовка сетки карточек товаров на странице каталога.
 
-#### `BasketLine`
-Строка товара в корзине. Отображает индекс, название и стоимость; содержит кнопку удаления позиции.
+**Поля**
+- `private root: HTMLElement` — корневой контейнер сетки.
+- `private cards: Map<string, GridCard>` — кэш карточек по `id`.
+- `private viewState: CatalogState` — текущее состояние.
 
-### Прочие представления
+**Методы**
+- `setState(state: CatalogState): void` — применить состояние и обновить DOM.
+- `getElement(): HTMLElement` — вернуть корневой контейнер.
 
-#### `ProductGrid`
-Контейнер каталога. Получает массив пропсов карточек, создаёт `GridCard` и монтирует их в грид. Бизнес‑логика отсутствует — только рендер и делегирование событий.
+**События**
+- Не эмитит. Карточки внутри сетки эмитят `product/open`.
 
-#### `CartPanel`
-Панель корзины (контент для модального окна): список `BasketLine`, итоговая сумма, кнопка «Оформить». Обрабатывает удаление строк и сообщает о переходе к оформлению.
+---
 
-#### `CartToggleButton`
-Кнопка корзины в шапке. Отображает счётчик и по клику инициирует открытие корзины.
+### `GridCard`
 
-#### `OverlayDialog`
-Модальное окно. **Не имеет наследников**: внутрь передаются готовые компоненты (`ProductQuicklook`, `CartPanel`, формы и т.д.). Управляет открытием/закрытием, `ESC`, кликом по подложке.
-Методы: `open(node: HTMLElement)`, `close()`.
+**Назначение.** Карточка товара в сетке каталога.
 
-### Формы (наследники `BaseFormView`)
+**Поля**
+- `private root: HTMLElement` — корневой элемент карточки.
+- `private id: ProductId` — идентификатор товара.
 
-#### `CheckoutDetailsStep`
-Шаг 1 оформления: выбор способа оплаты («Онлайн»/«При получении») и адрес доставки. Подсвечивает выбранный способ, валидирует поля и активирует сабмит только при валидном состоянии.
+**Методы**
+- `getElement(): HTMLElement` — вернуть DOM-элемент карточки.
 
-#### `CheckoutContactsStep`
-Шаг 2 оформления: e‑mail и телефон. Валидирует формат e‑mail и длину телефона, управляет доступностью сабмита. По submit отдаёт собранные контакты наверх.
+**События**
+- `product/open` — эмитится при клике по карточке.
 
+---
+
+### `CartPanel`
+
+**Назначение.** Отображение корзины в модальном окне: список позиций, итоговая сумма, кнопка «Оформить».
+
+**Поля**
+- `private root: HTMLElement` — контейнер панели.
+- `private listEl: HTMLElement` — контейнер списка.
+- `private totalEl: HTMLElement` — элемент суммы.
+- `private checkoutBtn: HTMLButtonElement` — кнопка оформления.
+
+**Методы**
+- `set items(items: HTMLElement[]): void` — заменить список готовыми узлами (`BasketLine`).
+- `set total(value: number): void` — обновить сумму.
+- `render(): HTMLElement` — вернуть контейнер.
+
+**События**
+- `basket/remove` — при удалении товара.
+- `basket/checkout` — при клике «Оформить».
+
+---
+
+### `BasketLine`
+
+**Назначение.** Строка товара в корзине.
+
+**Поля**
+- `private root: HTMLElement`
+- `private id: ProductId`
+
+**Методы**
+- `getElement(): HTMLElement`
+
+**События**
+- `basket/remove` — при клике на кнопку удаления.
+
+---
+
+### `ProductQuicklook`
+
+**Назначение.** Предпросмотр товара в модалке.
+
+**Поля**
+- `private root: HTMLElement`
+- `private id: ProductId`
+- `private price: Price`
+- `private inBasket: boolean`
+
+**Методы**
+- `getElement(): HTMLElement`
+- `setInBasket(value: boolean): void` — синхронизировать состояние кнопки.
+
+**События**
+- `product/add` — при клике «Купить».
+- `basket/remove` — при клике «Удалить из корзины».
+
+---
+
+### `CheckoutDetailsStep`
+
+**Назначение.** Форма выбора способа оплаты и адреса доставки.
+
+**Поля**
+- `private addressInput: HTMLInputElement`
+- `private payCardBtn: HTMLButtonElement`
+- `private payCashBtn: HTMLButtonElement`
+
+**Методы**
+- `render(): HTMLElement`
+- `applyState(state: { payment?: string; address?: string }): void` — применить состояние модели.
+- `showErrors(errors: { payment?: string; address?: string }): void` — отобразить ошибки.
+
+**События**
+- `order:change` — при изменении полей.
+- `order/step1/next` — при сабмите.
+
+---
+
+### `CheckoutContactsStep`
+
+**Назначение.** Форма ввода email и телефона.
+
+**Поля**
+- `private emailInput: HTMLInputElement`
+- `private phoneInput: HTMLInputElement`
+
+**Методы**
+- `render(): HTMLElement`
+- `showErrors(errors: { email?: string; phone?: string }): void`
+
+**События**
+- `order:change`
+- `order/step2/pay`
+
+---
+
+### `CartToggleButton`
+
+**Назначение.** Кнопка корзины в шапке.
+
+**Поля**
+- `private root: HTMLButtonElement`
+- `private counterEl: HTMLElement`
+
+**Методы**
+- `setCount(n: number): void`
+
+**События**
+- `basket/open`
+
+---
+
+### `OverlayDialog`
+
+**Назначение.** Модальное окно.
+
+**Поля**
+- `private overlay: HTMLElement`
+- `private windowEl: HTMLElement`
+- `private content: HTMLElement`
+- `private lastActive: HTMLElement | null`
+
+**Методы**
+- `open(node: HTMLElement): void`
+- `close(): void`
+- `setContent(node: HTMLElement): void`
+
+**События**
+- `modal/close`
+
+---
+## Models
+
+### `ProductCatalog`
+Методы: `setArrayProducts(items)`, `getArrayProducts()`, `getProduct(id)`.
+
+### `Cart`
+Методы: `addItem(product)`, `removeItem(id)`, `isItemInCart(id)`, `getCartItems()`, `getTotalPrice()`.
+
+### `Buyer`
+Методы: `setBuyerData(partial)`, `changeData(key, value)`, `validate()` (эмитит `form:errors`).
+
+---
 ## Презентер
 
 Так как приложение одностраничное, используется один презентер (см. `src/main.ts`), который координирует работу страницы.

@@ -1,8 +1,9 @@
 
 import type { IEvents } from '../base/Events';
 import type { ProductId, Price } from '../../types';
-import { cloneTemplate } from './utils';
+ 
 import { BaseCardView } from './BaseCardView';
+import { ensureElement,cloneTemplate } from '../../utils/utils';
 
 export interface ProductPreviewProps {
   id: ProductId;
@@ -23,19 +24,19 @@ export class ProductQuicklook extends BaseCardView<ProductPreviewProps> {
   private inBasket: boolean;
 
   constructor(private readonly events: IEvents, props: ProductPreviewProps) {
-    const root = cloneTemplate<HTMLElement>('card-preview');
+    const root = cloneTemplate<HTMLElement>('#card-preview');
     super(root);
     this.root = root;
-    this.titleEl    = (root.querySelector('.card__title') as HTMLElement) || undefined;
-    this.descEl     = (root.querySelector('.card__text') as HTMLElement) || document.createElement('div');
-    this.priceEl    = (root.querySelector('.card__price') as HTMLElement) || undefined;
-    this.categoryEl = (root.querySelector('.card__category') as HTMLElement) || undefined;
+    this.titleEl = (ensureElement<HTMLElement>('.card__title', root) as HTMLElement) || undefined;
+    this.descEl = (ensureElement<HTMLElement>('.card__text', root) as HTMLElement) || document.createElement('div');
+    this.priceEl = (ensureElement<HTMLElement>('.card__price', root) as HTMLElement) || undefined;
+    this.categoryEl = (ensureElement<HTMLElement>('.card__category', root) as HTMLElement) || undefined;
 
-    const imgNode = root.querySelector('.card__image') as HTMLElement | null;
+    const imgNode = ensureElement<HTMLElement>('.card__image', root) as HTMLElement | null;
     if (imgNode instanceof HTMLImageElement) this.imgEl = imgNode;
     else this.imgBoxEl = imgNode || undefined;
 
-    this.btn = (root.querySelector('.card__button') as HTMLButtonElement) || document.createElement('button');
+    this.btn = (ensureElement<HTMLButtonElement>('.card__button', root) as HTMLButtonElement) || document.createElement('button');
 
     this.id = props.id;
     this.price = props.price;
@@ -52,19 +53,16 @@ export class ProductQuicklook extends BaseCardView<ProductPreviewProps> {
       if (this.price === null) return;
       this.inBasket = !this.inBasket;
       this.updateButton();
-      this.events.emit(this.inBasket ? 'product/add' : 'product/remove', { id: this.id });
-      
+      this.events.emit(this.inBasket ? 'product/add' : 'basket/remove', { id: this.id });
+
     });
 
+    this.updateButton();
+  }
 
-    this.events.on<{ items: { id: string }[]; total: number }>('basket:changed', ({ items }) => {
-      const nowInBasket = items.some((i) => i.id === this.id);
-      if (nowInBasket !== this.inBasket) {
-        this.inBasket = nowInBasket;
-        this.updateButton();
-        
-      }
-    });
+  public setInBasket(value: boolean) {
+    this.inBasket = Boolean(value);
+    this.updateButton();
   }
 
   private updateButton() {

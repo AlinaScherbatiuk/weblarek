@@ -1,14 +1,13 @@
 import './scss/styles.scss';
 
- 
 import { ProductCatalog } from './components/Models/ProductCatalog';
 import { Cart } from './components/Models/Cart';
 import { Buyer } from './components/Models/Buyer';
-
- import { Api } from './components/base/Api';
+import { ensureElement } from './utils/utils';
+import { Api } from './components/base/Api';
 import { ApiCommunication } from './components/Models/ApiCommunication';
 import { API_URL, CDN_URL } from './utils/constants';
-
+import { BasketLine } from './components/View/BasketLine';
 import { events } from './components/base/eventsBus';
 import { OverlayDialog } from './components/View/OverlayDialog';
 import { CartToggleButton } from './components/View/CartToggleButton';
@@ -21,8 +20,11 @@ import { CheckoutContactsStep } from './components/View/CheckoutContactsStep';
 import type { IProduct, ProductId, IOrderRequest } from './types';
 
 const productsModel = new ProductCatalog([]);
-const cartModel = new Cart();
-const buyerModel = new Buyer('', '', '', '');
+const cartModel = new Cart(events);
+const buyerModel = new Buyer('', '', '', '', events);
+
+const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
+const service = new ApiCommunication(api);
 
 const modalView = new OverlayDialog(events);
 const headerCart = new CartToggleButton(events);
@@ -31,11 +33,8 @@ const catalogView = new CartPanel(events);
 const orderStep1View = new CheckoutDetailsStep(events);
 const orderStep2View = new CheckoutContactsStep(events);
 
-document.querySelector('.header__basket')?.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  events.emit('basket/open', {});
-});
+let currentPreview: ProductQuicklook | null = null;
+let currentPreviewId: ProductId | null = null;
 
 function renderCatalog() {
   const items = productsModel.getArrayProducts().map((p: IProduct) => ({
@@ -43,23 +42,14 @@ function renderCatalog() {
     title: p.title,
     image: p.image ? `${CDN_URL}/${p.image}` : undefined,
     price: p.price,
-  inBasket: cartModel.isItemInCart(p.id),
-  category: p.category,
+    inBasket: cartModel.isItemInCart(p.id),
+    category: p.category,
   }));
   catalog.setState({ items });
-  headerCart.setState({ count: cartModel.getCartItems().length });
+  headerCart.setCount(cartModel.getCartItems().length);
 }
 
 function openBasket() {
-  catalogView.setState({
-    items: cartModel.getCartItems().map((it, index) => ({
-      id: it.id,
-      title: it.title,
-      price: it.price,
-      index,
-    })),
-    total: cartModel.getTotalPrice(),
-  });
   modalView.open(catalogView.render());
 }
 
@@ -76,6 +66,9 @@ events.on<{ id: ProductId }>('product/open', ({ id }) => {
     inBasket: cartModel.isItemInCart(item.id),
     category: item.category,
   });
+
+  currentPreview = preview;
+  currentPreviewId = item.id;
   modalView.open(preview.getElement());
 });
 
@@ -85,28 +78,54 @@ events.on<{ id: ProductId }>('product/add', ({ id }) => {
   if (!cartModel.isItemInCart(id)) {
     cartModel.addItem(item);
   }
-  headerCart.setState({ count: cartModel.getCartItems().length });
-events.on<{ id: ProductId }>('product/remove', ({ id }) => {
+  events.emit('basket:change', {});
+});
+events.on<{ id: ProductId }>('basket/remove', ({ id }) => {
   if (cartModel.isItemInCart(id)) {
     cartModel.removeItem(id);
   }
-  headerCart.setState({ count: cartModel.getCartItems().length });
-  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
-});
-
-  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
-});
-
+  events.emit('basket:change', {});
+});  
 events.on('basket/open', () => openBasket());
 
-events.on<{ id: ProductId }>('basket/remove', ({ id }) => {
-  cartModel.removeItem(id);
-  headerCart.setState({ count: cartModel.getCartItems().length });
-  events.emit('basket:changed', { items: cartModel.getCartItems(), total: cartModel.getTotalPrice() });
+events.on('basket:change', () => {
+  const nodes: HTMLElement[] = cartModel.getCartItems().map((it, idx) => {
+    const line = new BasketLine(events, { id: it.id, title: it.title, price: it.price, index: idx + 1 });
+    return line.getElement();
+  });
+  catalogView.items = nodes;
+  catalogView.total = cartModel.getTotalPrice();
+  catalogView.items = nodes;
+  catalogView.total = cartModel.getTotalPrice();
+  headerCart.setCount(cartModel.getCartItems().length);
+
+   if (currentPreview && currentPreviewId) {
+    currentPreview.setInBasket(cartModel.isItemInCart(currentPreviewId));
+  }
 });
- 
+
+events.on<{ key: string; value: any }>('order:change', ({ key, value }) => {
+  if (key === 'payment') {
+    buyerModel.setBuyerData({ payment: value });
+    buyerModel.validate();
+  } else if (key === 'address') {
+    buyerModel.setBuyerData({ address: value });
+    buyerModel.validate();
+  }
+}); 
+
 events.on('basket/checkout', () => {
   modalView.open(orderStep1View.render());
+  buyerModel.validate();
+});
+
+events.on('modal/close', () => {
+  currentPreview = null;
+  currentPreviewId = null;
+});
+
+events.on<{ errors: { payment?: string; address?: string } }>('form:errors', ({ errors }) => {
+  orderStep1View.showErrors(errors);
 });
 
 events.on<{ data: { payment: 'card' | 'cash'; address: string } }>('order/step1/next', ({ data }) => {
@@ -118,7 +137,6 @@ events.on<{ data: { payment: 'card' | 'cash'; address: string } }>('order/step1/
 events.on<{ data: { email: string; phone: string } }>('order/step2/pay', async ({ data }) => {
   buyerModel.setBuyerData({ email: data.email });
   buyerModel.setBuyerData({ phone: data.phone });
-  if (!buyerModel.validate()) return;
 
   const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
   const service = new ApiCommunication(api);
@@ -133,17 +151,18 @@ events.on<{ data: { email: string; phone: string } }>('order/step2/pay', async (
   };
 
   try {
+
     await service.createOrder(payload);
-const tpl = document.getElementById('success') as HTMLTemplateElement;
-  const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
-  const amountEl = node.querySelector('.order-success__description') as HTMLElement;
-  if (amountEl) amountEl.textContent = `Списано ${cartModel.getTotalPrice()} синапсов`;
-  const closeBtn = node.querySelector('.order-success__close') as HTMLButtonElement;
-  if (closeBtn) closeBtn.addEventListener('click', () => modalView.close());
-  modalView.open(node);
+    const tpl = document.getElementById('success') as HTMLTemplateElement;
+    const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const amountEl = ensureElement<HTMLElement>('.order-success__description', node) as HTMLElement;
+    if (amountEl) amountEl.textContent = `Списано ${cartModel.getTotalPrice()} синапсов`;
+    const closeBtn = ensureElement<HTMLButtonElement>('.order-success__close', node) as HTMLButtonElement;
+    if (closeBtn) closeBtn.addEventListener('click', () => modalView.close());
+    modalView.open(node);
 
     cartModel.cartItems = [];
-    headerCart.setState({ count: 0 });
+    headerCart.setCount(cartModel.getCartItems().length);
   } catch (e) {
     console.error('Не удалось оформить заказ:', e);
   }
@@ -151,12 +170,11 @@ const tpl = document.getElementById('success') as HTMLTemplateElement;
 
 
 (async () => {
-  try {
-    const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
-    const service = new ApiCommunication(api);
+  try { 
     const items = await service.getProducts();
     productsModel.setArrayProducts(items);
     renderCatalog();
+    events.emit('basket:change', {});
   } catch (e) {
     console.error('Ошибка загрузки каталога:', e);
   }
