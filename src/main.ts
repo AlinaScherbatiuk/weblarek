@@ -162,7 +162,8 @@ events.on<{ data: { email: string; phone: string } }>('order/step2/pay', async (
     modalView.open(node);
 
     cartModel.cartItems = [];
-    headerCart.setCount(cartModel.getCartItems().length);
+    events.emit('basket:change', {}); 
+    headerCart.setCount(cartModel.getCartItems().length); 
   } catch (e) {
     console.error('Не удалось оформить заказ:', e);
   }

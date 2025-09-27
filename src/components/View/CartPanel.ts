@@ -25,6 +25,10 @@ export class CartPanel extends Component<unknown> {
       e.stopPropagation();
       this.events.emit('basket/checkout', {} as any);
     });
+    if (this.listEl) {
+      (this.listEl as HTMLElement).style.maxHeight = '60vh';
+      (this.listEl as HTMLElement).style.overflowY = 'auto';
+    }
   }
 
   set items(nodes: HTMLElement[]) {
