@@ -2,8 +2,7 @@ import './scss/styles.scss';
 
 import { ProductCatalog } from './components/Models/ProductCatalog';
 import { Cart } from './components/Models/Cart';
-import { Buyer } from './components/Models/Buyer';
-import { ensureElement } from './utils/utils';
+import { Buyer } from './components/Models/Buyer'; 
 import { Api } from './components/base/Api';
 import { ApiCommunication } from './components/Models/ApiCommunication';
 import { API_URL, CDN_URL } from './utils/constants';
@@ -16,13 +15,13 @@ import { CartPanel } from './components/View/CartPanel';
 import { ProductQuicklook } from './components/View/ProductQuicklook';
 import { CheckoutDetailsStep } from './components/View/CheckoutDetailsStep';
 import { CheckoutContactsStep } from './components/View/CheckoutContactsStep';
-
+import { OrderSuccess } from './components/View/OrderSuccess';
 import type { IProduct, ProductId, IOrderRequest } from './types';
 
 const productsModel = new ProductCatalog([]);
 const cartModel = new Cart(events);
 const buyerModel = new Buyer('', '', '', '', events);
-
+const orderSuccessView = new OrderSuccess(events);
 const api = new Api(API_URL, { headers: { 'Content-Type': 'application/json' } });
 const service = new ApiCommunication(api);
 
@@ -78,14 +77,12 @@ events.on<{ id: ProductId }>('product/add', ({ id }) => {
   if (!cartModel.isItemInCart(id)) {
     cartModel.addItem(item);
   }
-  events.emit('basket:change', {});
 });
 events.on<{ id: ProductId }>('basket/remove', ({ id }) => {
   if (cartModel.isItemInCart(id)) {
     cartModel.removeItem(id);
   }
-  events.emit('basket:change', {});
-});  
+});
 events.on('basket/open', () => openBasket());
 
 events.on('basket:change', () => {
@@ -95,11 +92,10 @@ events.on('basket:change', () => {
   });
   catalogView.items = nodes;
   catalogView.total = cartModel.getTotalPrice();
-  catalogView.items = nodes;
-  catalogView.total = cartModel.getTotalPrice();
+
   headerCart.setCount(cartModel.getCartItems().length);
 
-   if (currentPreview && currentPreviewId) {
+  if (currentPreview && currentPreviewId) {
     currentPreview.setInBasket(cartModel.isItemInCart(currentPreviewId));
   }
 });
@@ -112,7 +108,7 @@ events.on<{ key: string; value: any }>('order:change', ({ key, value }) => {
     buyerModel.setBuyerData({ address: value });
     buyerModel.validate();
   }
-}); 
+});
 
 events.on('basket/checkout', () => {
   modalView.open(orderStep1View.render());
@@ -120,6 +116,7 @@ events.on('basket/checkout', () => {
 });
 
 events.on('modal/close', () => {
+  modalView.close();          
   currentPreview = null;
   currentPreviewId = null;
 });
@@ -153,29 +150,19 @@ events.on<{ data: { email: string; phone: string } }>('order/step2/pay', async (
   try {
 
     await service.createOrder(payload);
-    const tpl = document.getElementById('success') as HTMLTemplateElement;
-    const node = tpl.content.firstElementChild!.cloneNode(true) as HTMLElement;
-    const amountEl = ensureElement<HTMLElement>('.order-success__description', node) as HTMLElement;
-    if (amountEl) amountEl.textContent = `Списано ${cartModel.getTotalPrice()} синапсов`;
-    const closeBtn = ensureElement<HTMLButtonElement>('.order-success__close', node) as HTMLButtonElement;
-    if (closeBtn) closeBtn.addEventListener('click', () => modalView.close());
-    modalView.open(node);
 
-    cartModel.cartItems = [];
-    events.emit('basket:change', {}); 
-    headerCart.setCount(cartModel.getCartItems().length); 
+    modalView.open(orderSuccessView.render(payload.total));
+    cartModel.clear();
   } catch (e) {
     console.error('Не удалось оформить заказ:', e);
   }
 });
 
-
 (async () => {
-  try { 
+  try {
     const items = await service.getProducts();
     productsModel.setArrayProducts(items);
     renderCatalog();
-    events.emit('basket:change', {});
   } catch (e) {
     console.error('Ошибка загрузки каталога:', e);
   }
